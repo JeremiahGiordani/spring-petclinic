@@ -35,5 +35,18 @@ pipeline {
         }
       }
     }
+
+    stage('Deploy to Production VM') {
+      steps {
+        sshagent(['petclinic-vm-key']) {
+          sh '''
+            JAR=$(ls target/spring-petclinic-*.jar | head -1)
+            ANSIBLE_HOST_KEY_CHECKING=False \
+            ansible-playbook -i ansible/inventory.ini ansible/deploy.yml \
+              -e "jar_src=${WORKSPACE}/${JAR}"
+          '''
+        }
+      }
+    }
   }
 }

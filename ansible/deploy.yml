@@ -1,0 +1,72 @@
+---
+- name: Deploy spring-petclinic to the production VM
+  hosts: prod
+  become: true
+  vars:
+    app_dir: /opt/petclinic
+    # jar_src is passed from the Jenkins pipeline (-e jar_src=...)
+  tasks:
+    - name: Ensure Java 17 runtime is installed
+      apt:
+        name: openjdk-17-jre-headless
+        state: present
+        update_cache: true
+
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: "0755"
+
+    - name: Copy application jar to the VM
+      copy:
+        src: "{{ jar_src }}"
+        dest: "{{ app_dir }}/app.jar"
+        owner: deploy
+        group: deploy
+        mode: "0644"
+      notify: Restart petclinic
+
+    - name: Install systemd unit for petclinic
+      copy:
+        dest: /etc/systemd/system/petclinic.service
+        content: |
+          [Unit]
+          Description=Spring PetClinic
+          After=network.target
+
+          [Service]
+          User=deploy
+          ExecStart=/usr/bin/java -jar {{ app_dir }}/app.jar --server.port=8080
+          SuccessExitStatus=143
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart petclinic
+
+    - name: Enable and start petclinic
+      systemd:
+        name: petclinic
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Wait for petclinic to respond on port 8080
+      uri:
+        url: http://localhost:8080/
+        status_code: 200
+      register: health
+      until: health.status == 200
+      retries: 30
+      delay: 5
+
+  handlers:
+    - name: Restart petclinic
+      systemd:
+        name: petclinic
+        state: restarted
+        daemon_reload: true
