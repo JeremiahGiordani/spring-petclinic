@@ -1,6 +1,6 @@
 ---
 - name: Deploy spring-petclinic to the production VM
-  hosts: prod
+  hosts: all
   become: true
   vars:
     app_dir: /opt/petclinic

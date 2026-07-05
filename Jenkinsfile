@@ -45,9 +45,10 @@ pipeline {
             # Package the controller's JDK to ship to the VM (VM has no internet)
             tar czf jdk17.tgz -C /opt/java openjdk
             ANSIBLE_HOST_KEY_CHECKING=False \
-            ansible-playbook -i ansible/inventory.ini ansible/deploy.yml \
+            ansible-playbook -i "${PROD_VM_IP}," -u deploy ansible/deploy.yml \
               -e "jar_src=${WORKSPACE}/${JAR}" \
-              -e "jdk_src=${WORKSPACE}/jdk17.tgz"
+              -e "jdk_src=${WORKSPACE}/jdk17.tgz" \
+              -e "ansible_python_interpreter=/usr/bin/python3"
           '''
         }
       }
@@ -60,7 +61,7 @@ pipeline {
           # this file) does not flag a literal http:// to a non-localhost host.
           SCHEME=http
           ZAP=$SCHEME://zap:8090
-          TARGET=$SCHEME://192.168.252.2:8080
+          TARGET=$SCHEME://${PROD_VM_IP}:8080
           echo "Spidering $TARGET ..."
           SID=$(curl -s "$ZAP/JSON/spider/action/scan/?url=$TARGET&maxChildren=10" | grep -o '"scan":"[0-9]*"' | grep -o '[0-9]*')
           for i in $(seq 1 60); do
