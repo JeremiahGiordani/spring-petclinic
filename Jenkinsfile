@@ -51,5 +51,35 @@ pipeline {
         }
       }
     }
+
+    stage('ZAP Security Scan') {
+      steps {
+        sh '''
+          ZAP=http://zap:8090
+          TARGET=http://192.168.252.2:8080
+          echo "Spidering $TARGET ..."
+          SID=$(curl -s "$ZAP/JSON/spider/action/scan/?url=$TARGET&maxChildren=10" | grep -o '"scan":"[0-9]*"' | grep -o '[0-9]*')
+          for i in $(seq 1 60); do
+            st=$(curl -s "$ZAP/JSON/spider/view/status/?scanId=$SID" | grep -o '"status":"[0-9]*"' | grep -o '[0-9]*')
+            [ "$st" = "100" ] && break
+            sleep 2
+          done
+          echo "Spider complete. Waiting for passive scan to drain..."
+          for i in $(seq 1 60); do
+            rec=$(curl -s "$ZAP/JSON/pscan/view/recordsToScan/" | grep -o '"recordsToScan":"[0-9]*"' | grep -o '[0-9]*')
+            [ "$rec" = "0" ] && break
+            sleep 2
+          done
+          echo "Generating ZAP HTML report..."
+          curl -s "$ZAP/OTHER/core/other/htmlreport/" -o zap-report.html
+          ls -l zap-report.html
+        '''
+      }
+      post {
+        always {
+          publishHTML(target: [reportName: 'ZAP Security Report', reportDir: '.', reportFiles: 'zap-report.html', keepAll: true, allowMissing: true, alwaysLinkToLastBuild: true])
+        }
+      }
+    }
   }
 }
