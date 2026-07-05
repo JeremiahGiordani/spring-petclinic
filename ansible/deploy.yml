@@ -4,18 +4,21 @@
   become: true
   vars:
     app_dir: /opt/petclinic
-    # jar_src is passed from the Jenkins pipeline (-e jar_src=...)
+    java_dir: /opt/java
+    java_bin: /opt/java/openjdk/bin/java
+    # jar_src and jdk_src are passed from the Jenkins pipeline (-e ...)
   tasks:
-    - name: Ensure Java 17 runtime is installed
-      apt:
-        name: openjdk-17-jre-headless
-        state: present
-        update_cache: true
-        lock_timeout: 300   # wait for cloud-init's apt to finish on a fresh VM
-      register: apt_java
-      retries: 3
-      delay: 10
-      until: apt_java is succeeded
+    - name: Create Java directory
+      file:
+        path: "{{ java_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Ship JDK 17 to the VM (VM has no outbound internet in this env)
+      unarchive:
+        src: "{{ jdk_src }}"
+        dest: "{{ java_dir }}"
+        creates: "{{ java_bin }}"
 
     - name: Create application directory
       file:
@@ -44,7 +47,7 @@
 
           [Service]
           User=deploy
-          ExecStart=/usr/bin/java -jar {{ app_dir }}/app.jar --server.port=8080
+          ExecStart={{ java_bin }} -jar {{ app_dir }}/app.jar --server.port=8080
           SuccessExitStatus=143
           Restart=always
           RestartSec=5

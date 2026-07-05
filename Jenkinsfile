@@ -41,9 +41,12 @@ pipeline {
         sshagent(['petclinic-vm-key']) {
           sh '''
             JAR=$(ls target/spring-petclinic-*.jar | head -1)
+            # Package the controller's JDK to ship to the VM (VM has no internet)
+            tar czf jdk17.tgz -C /opt/java openjdk
             ANSIBLE_HOST_KEY_CHECKING=False \
             ansible-playbook -i ansible/inventory.ini ansible/deploy.yml \
-              -e "jar_src=${WORKSPACE}/${JAR}"
+              -e "jar_src=${WORKSPACE}/${JAR}" \
+              -e "jdk_src=${WORKSPACE}/jdk17.tgz"
           '''
         }
       }
