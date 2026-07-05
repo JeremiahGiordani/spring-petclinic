@@ -11,6 +11,11 @@
         name: openjdk-17-jre-headless
         state: present
         update_cache: true
+        lock_timeout: 300   # wait for cloud-init's apt to finish on a fresh VM
+      register: apt_java
+      retries: 3
+      delay: 10
+      until: apt_java is succeeded
 
     - name: Create application directory
       file:
