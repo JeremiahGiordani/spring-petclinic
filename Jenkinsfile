@@ -9,6 +9,7 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
+        cleanWs()
         checkout scm
         sh 'chmod +x mvnw'
       }
